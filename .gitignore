@@ -1,3 +1,5 @@
 /dist/
 /runner
 /runner.exe
+/result
+/result-*

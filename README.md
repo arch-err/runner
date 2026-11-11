@@ -27,6 +27,10 @@ and [Neovim integration](docs/neovim.md) for autosave with on-demand execution.
 
 ## Build
 
+With Nix, `nix build` builds the package, `nix run . -- --help` runs it, and
+`nix develop` provides Go, a C compiler, Just, and nixfmt. `nix flake check`
+builds the package and runs its integration tests.
+
 Requires Go 1.24 or newer. No C compiler is needed for the binaries.
 
 ```sh
