@@ -50,6 +50,7 @@ func TestHelperProcess(t *testing.T) {
 	case "sleep":
 		time.Sleep(time.Minute)
 	case "exit":
+		fmt.Fprintln(os.Stderr, "command failed")
 		os.Exit(7)
 	default:
 		os.Exit(96)
@@ -214,11 +215,16 @@ func TestFailureWaitsForAnotherPoke(t *testing.T) {
 	t.Setenv("RUNNER_TEST_HELPER", "1")
 	args := []string{"--manual", "--name", "failure", "--", os.Args[0], "-test.run=^TestHelperProcess$", "--", "exit"}
 	i := launch(t, dir, args...)
-	eventually(t, "failed command reported", func() bool { return strings.Contains(i.log.String(), "exit 7") })
+	eventually(t, "failed command output", func() bool { return strings.Contains(i.log.String(), "command failed") })
 	if err := poke("failure"); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, "failed command rerun", func() bool { return strings.Count(i.log.String(), "exit 7") == 2 })
+	eventually(t, "failed command rerun", func() bool { return strings.Count(i.log.String(), "command failed") == 2 })
+	time.Sleep(150 * time.Millisecond)
+	lines := strings.Split(strings.TrimSpace(i.log.String()), "\n")
+	if len(lines) != 3 || lines[1] != "command failed" || lines[2] != "command failed" {
+		t.Fatalf("unexpected per-run output: %q", i.log.String())
+	}
 }
 
 func TestParse(t *testing.T) {

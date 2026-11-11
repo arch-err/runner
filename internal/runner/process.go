@@ -8,7 +8,7 @@ import (
 
 type process struct {
 	cmd   *exec.Cmd
-	done  chan result
+	done  chan struct{}
 	group processGroup
 }
 
@@ -22,7 +22,6 @@ func startProcess(args []string, directory string) (*process, error) {
 	if err != nil {
 		return nil, err
 	}
-	started := time.Now()
 	if err := cmd.Start(); err != nil {
 		group.close()
 		return nil, err
@@ -33,13 +32,10 @@ func startProcess(args []string, directory string) (*process, error) {
 		group.close()
 		return nil, err
 	}
-	p := &process{cmd: cmd, done: make(chan result, 1), group: group}
+	p := &process{cmd: cmd, done: make(chan struct{}), group: group}
 	go func() {
-		code := 0
-		if err := cmd.Wait(); err != nil {
-			code = cmd.ProcessState.ExitCode()
-		}
-		p.done <- result{code, time.Since(started)}
+		_ = cmd.Wait()
+		close(p.done)
 	}()
 	return p, nil
 }

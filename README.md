@@ -12,7 +12,7 @@ runner poke aoc
 
 Runs immediately unless `--postpone` is set. File changes are debounced; a trigger
 stops the previous process tree before starting again. Output streams directly to
-the terminal, followed by exit status and elapsed time. Ctrl-C shuts it down.
+the terminal without per-run headers or footers. Ctrl-C shuts it down.
 Commands receive no stdin.
 
 Use `--clear` to clear before each run, `--directory PATH` to set the working

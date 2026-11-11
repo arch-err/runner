@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"time"
 )
 
 func request(ch chan<- struct{}) {
@@ -65,7 +64,7 @@ func run(c config) error {
 	}
 	fmt.Fprintf(os.Stderr, "%s · pid %d · %s\n", label, os.Getpid(), mode(c))
 	var child *process
-	var done <-chan result
+	var done <-chan struct{}
 	defer func() {
 		if child != nil {
 			child.stop(c.stopTimeout)
@@ -75,7 +74,6 @@ func run(c config) error {
 		if c.clear {
 			clearScreen()
 		}
-		fmt.Fprintf(os.Stderr, "\n%s · running\n", label)
 		p, err := startProcess(c.command, c.directory)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s · start failed: %v · waiting\n", label, err)
@@ -106,10 +104,9 @@ func run(c config) error {
 				return nil
 			}
 			start()
-		case r := <-done:
+		case <-done:
 			child.close()
 			child, done = nil, nil
-			fmt.Fprintf(os.Stderr, "\n%s · exit %d · %s · waiting\n", label, r.code, r.elapsed.Round(time.Millisecond))
 		}
 	}
 }
@@ -125,9 +122,4 @@ func clearScreen() {
 	if info, err := os.Stderr.Stat(); err == nil && info.Mode()&os.ModeCharDevice != 0 && os.Getenv("TERM") != "dumb" {
 		fmt.Fprint(os.Stderr, "\x1b[2J\x1b[H")
 	}
-}
-
-type result struct {
-	code    int
-	elapsed time.Duration
 }
