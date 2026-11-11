@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"time"
 )
 
 func request(ch chan<- struct{}) {
@@ -62,7 +63,10 @@ func run(c config) error {
 	if c.name != "" {
 		label += " " + c.name
 	}
-	fmt.Fprintf(os.Stderr, "%s · pid %d · %s\n", label, os.Getpid(), mode(c))
+	screen := openScreen(fmt.Sprintf("%s · pid %d · %s", label, os.Getpid(), mode(c)))
+	defer screen.Close()
+	resize := time.NewTicker(200 * time.Millisecond)
+	defer resize.Stop()
 	var child *process
 	var done <-chan struct{}
 	defer func() {
@@ -71,12 +75,12 @@ func run(c config) error {
 		}
 	}()
 	start := func() {
-		if c.clear {
-			clearScreen()
-		}
+		screen.resize()
+		screen.begin()
 		p, err := startProcess(c.command, c.directory)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s · start failed: %v · waiting\n", label, err)
+			screen.failed()
 			return
 		}
 		child, done = p, p.done
@@ -90,6 +94,8 @@ func run(c config) error {
 			return nil
 		case err := <-watchErrors:
 			return fmt.Errorf("watch: %w", err)
+		case <-resize.C:
+			screen.resize()
 		case <-triggers:
 			if child != nil {
 				child.stop(c.stopTimeout)
@@ -106,6 +112,7 @@ func run(c config) error {
 			start()
 		case <-done:
 			child.close()
+			screen.finish(child.cmd.ProcessState.ExitCode(), time.Since(child.started))
 			child, done = nil, nil
 		}
 	}
@@ -116,10 +123,4 @@ func mode(c config) string {
 		return "manual"
 	}
 	return "watching"
-}
-
-func clearScreen() {
-	if info, err := os.Stderr.Stat(); err == nil && info.Mode()&os.ModeCharDevice != 0 && os.Getenv("TERM") != "dumb" {
-		fmt.Fprint(os.Stderr, "\x1b[2J\x1b[H")
-	}
 }

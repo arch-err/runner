@@ -17,7 +17,7 @@ buildGoModule {
     ];
   };
 
-  vendorHash = "sha256-vWkARPlsCm6/WTezsgZfca9qeX+rBHnq5uppxlk7w50=";
+  vendorHash = "sha256-cTu/XpzKVgpHqUJ22ICtv6qGTd0Jmh9JXwM7BAg6E/E=";
   subPackages = [ "cmd/runner" ];
   env.CGO_ENABLED = "0";
   ldflags = [

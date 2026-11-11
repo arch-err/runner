@@ -11,15 +11,18 @@ runner poke aoc
 ```
 
 Runs immediately unless `--postpone` is set. File changes are debounced; a trigger
-stops the previous process tree before starting again. Output streams directly to
-the terminal without per-run headers or footers. Ctrl-C shuts it down.
+stops the previous process tree before starting again. In a terminal, the header
+and status footer stay at the top and bottom of the pane. Each run clears the
+output area and starts from the top; the footer shows exit status and elapsed
+time. Ctrl-C restores your terminal and exits. Redirected output stays plain.
 Commands receive no stdin.
 
-Use `--clear` to clear before each run, `--directory PATH` to set the working
+Use `--directory PATH` to set the working
 directory, and repeat `--ignore GLOB` to exclude basenames or relative paths.
 Directories are watched recursively; `.git`, `.hg`, `.svn`, `node_modules`,
 `target`, and `dist` are ignored. Explicitly watched files bypass these ignores.
 Keep generated output outside watched paths to avoid triggering a loop.
+`--clear` is accepted for compatibility; terminal runs always redraw.
 
 Commands and arguments pass through unchanged. For pipes or redirection, launch
 `sh -c '...'` or `pwsh -Command '...'` explicitly. See `runner --help` for options

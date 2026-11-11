@@ -13,6 +13,18 @@ import (
 func stopSignals() []os.Signal { return []os.Signal{os.Interrupt, syscall.SIGTERM} }
 func pokeSignals() []os.Signal { return nil }
 
+func enableTerminal() (func(), error) {
+	handle := windows.Handle(os.Stdout.Fd())
+	var mode uint32
+	if err := windows.GetConsoleMode(handle, &mode); err != nil {
+		return nil, err
+	}
+	if err := windows.SetConsoleMode(handle, mode|windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING); err != nil {
+		return nil, err
+	}
+	return func() { _ = windows.SetConsoleMode(handle, mode) }, nil
+}
+
 type processGroup struct {
 	job windows.Handle
 	pid uint32

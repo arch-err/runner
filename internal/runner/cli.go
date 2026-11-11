@@ -23,7 +23,7 @@ Options:
   --manual           Run only on pokes or SIGUSR1 (Unix)
   --name NAME        Give this instance a name for runner poke
   --postpone         Wait for a trigger before the first run
-  --clear            Clear the visible terminal before each run
+  --clear            Accepted for compatibility; terminal runs always redraw
   --debounce TIME    Group file changes (default 100ms)
   --stop-timeout TIME  Allow graceful shutdown (default 1s)
   --ignore GLOB      Ignore a basename or relative path; repeat as needed

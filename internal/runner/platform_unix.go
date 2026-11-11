@@ -13,6 +13,8 @@ import (
 func stopSignals() []os.Signal { return []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGHUP} }
 func pokeSignals() []os.Signal { return []os.Signal{syscall.SIGUSR1} }
 
+func enableTerminal() (func(), error) { return func() {}, nil }
+
 type processGroup struct{ pid int }
 
 func prepareProcess(cmd *exec.Cmd) (processGroup, error) {
