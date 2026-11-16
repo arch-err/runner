@@ -10,6 +10,10 @@ runner --manual --name aoc -- python solve.py --input sample.txt
 runner poke aoc
 ```
 
+Short flags: `-w` watch, `-m` manual, `-n` name, `-p` postpone, `-d` debounce,
+`-t` stop timeout, `-i` ignore, `-C` directory, `-c` clear, and `-h` help.
+Long and short flags can be mixed; repeat `-w` or `-i` for multiple values.
+
 Runs immediately unless `--postpone` is set. File changes are debounced; a trigger
 stops the previous process tree before starting again. In a terminal, the header
 and status footer stay at the top and bottom of the pane. Each run clears the

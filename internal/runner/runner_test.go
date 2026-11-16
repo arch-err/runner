@@ -2,10 +2,13 @@ package runner
 
 import (
 	"bytes"
+	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -236,5 +239,26 @@ func TestParse(t *testing.T) {
 		if _, err := parse(args); err == nil {
 			t.Errorf("accepted invalid args: %v", args)
 		}
+	}
+}
+
+func TestShortFlags(t *testing.T) {
+	long, err := parse([]string{"--watch", "one", "--watch", "two", "--name", "aoc", "--postpone", "--clear", "--debounce", "200ms", "--stop-timeout", "2s", "--ignore", "*.log", "--ignore", "*.tmp", "--directory", ".", "--", "python", "solve.py", "-n", "3"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	short, err := parse([]string{"-w", "one", "--watch", "two", "-n=aoc", "-p", "-c", "-d", "200ms", "-t", "2s", "-i", "*.log", "--ignore", "*.tmp", "-C", ".", "--", "python", "solve.py", "-n", "3"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(short, long) {
+		t.Fatalf("aliases differ: %#v != %#v", short, long)
+	}
+	manual, err := parse([]string{"-m", "-n", "aoc", "--", "echo"})
+	if err != nil || !manual.manual {
+		t.Fatalf("manual alias: %#v, %v", manual, err)
+	}
+	if _, err := parse([]string{"-h"}); !errors.Is(err, flag.ErrHelp) {
+		t.Fatalf("expected help, got %v", err)
 	}
 }

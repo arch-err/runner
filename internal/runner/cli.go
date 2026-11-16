@@ -14,21 +14,21 @@ import (
 
 const help = `Run a command again when files change or you poke it.
 
-  runner --watch solve.py -- python solve.py --input sample.txt
-  runner --manual --name aoc -- python solve.py
+  runner -w solve.py -- python solve.py --input sample.txt
+  runner -m -n aoc -- python solve.py
   runner poke aoc
 
 Options:
-  --watch PATH       Watch a file or directory; repeat for multiple paths
-  --manual           Run only on pokes or SIGUSR1 (Unix)
-  --name NAME        Give this instance a name for runner poke
-  --postpone         Wait for a trigger before the first run
-  --clear            Accepted for compatibility; terminal runs always redraw
-  --debounce TIME    Group file changes (default 100ms)
-  --stop-timeout TIME  Allow graceful shutdown (default 1s)
-  --ignore GLOB      Ignore a basename or relative path; repeat as needed
-  --directory PATH  Working directory for the command and watched paths
-  --help             Show this help
+  -w, --watch PATH        Watch a file or directory; repeat for multiple paths
+  -m, --manual            Run only on pokes or SIGUSR1 (Unix)
+  -n, --name NAME         Give this instance a name for runner poke
+  -p, --postpone          Wait for a trigger before the first run
+  -c, --clear             Accepted for compatibility; terminal runs always redraw
+  -d, --debounce TIME     Group file changes (default 100ms)
+  -t, --stop-timeout TIME Allow graceful shutdown (default 1s)
+  -i, --ignore GLOB       Ignore a basename or relative path; repeat as needed
+  -C, --directory PATH    Working directory for the command and watched paths
+  -h, --help              Show this help
 
 Commands run directly. Use sh -c '...' or pwsh -Command '...' for shell syntax.
 SIGUSR1 triggers a run on Unix. Ctrl-C stops the command and exits.
@@ -62,6 +62,14 @@ func parse(args []string) (config, error) {
 	f.StringVar(&c.directory, "directory", ".", "")
 	f.DurationVar(&c.debounce, "debounce", 100*time.Millisecond, "")
 	f.DurationVar(&c.stopTimeout, "stop-timeout", time.Second, "")
+	// Aliases share the same flag.Value, including repeatable paths and globs.
+	for short, long := range map[string]string{
+		"w": "watch", "m": "manual", "n": "name", "p": "postpone",
+		"c": "clear", "d": "debounce", "t": "stop-timeout",
+		"i": "ignore", "C": "directory",
+	} {
+		f.Var(f.Lookup(long).Value, short, "")
+	}
 	if err := f.Parse(args); err != nil {
 		return c, err
 	}
