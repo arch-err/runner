@@ -27,6 +27,7 @@ type screen struct {
 	terminal       *vt.Emulator
 	restore        func()
 	childResize    func(int, int)
+	pendingG       bool
 }
 
 func openScreen(header string) *screen {
@@ -63,6 +64,7 @@ func (s *screen) reset() {
 	s.terminal = vt.NewEmulator(s.width-1, s.height-2)
 	s.terminal.SetScrollbackSize(10000)
 	s.top = -1
+	s.pendingG = false
 	s.dirty = true
 }
 
@@ -182,25 +184,40 @@ func (s *screen) input(event uv.Event) bool {
 	defer s.mu.Unlock()
 	switch event := event.(type) {
 	case uv.KeyPressEvent:
-		switch event.String() {
+		key := event.String()
+		previousG := s.pendingG
+		s.pendingG = false
+		switch key {
 		case "ctrl+c", "q":
 			return true
 		case "pgup":
 			s.scroll(-(s.height - 2))
 		case "pgdown":
 			s.scroll(s.height - 2)
-		case "up":
+		case "up", "k":
 			s.scroll(-1)
-		case "down":
+		case "down", "j":
 			s.scroll(1)
+		case "ctrl+u":
+			s.scroll(-max(1, (s.height-2)/2))
+		case "ctrl+d":
+			s.scroll(max(1, (s.height-2)/2))
+		case "g":
+			if previousG {
+				s.top = 0
+				s.dirty = true
+			} else {
+				s.pendingG = true
+			}
 		case "home":
 			s.top = 0
 			s.dirty = true
-		case "end":
+		case "end", "G", "shift+g":
 			s.top = -1
 			s.dirty = true
 		}
 	case uv.MouseWheelEvent:
+		s.pendingG = false
 		if event.Button == uv.MouseWheelUp {
 			s.scroll(-3)
 		} else if event.Button == uv.MouseWheelDown {

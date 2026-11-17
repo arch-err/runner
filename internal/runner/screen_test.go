@@ -44,3 +44,54 @@ func TestScrollAndFollow(t *testing.T) {
 		t.Fatal("new run retained old output")
 	}
 }
+
+func TestVimScrollKeys(t *testing.T) {
+	s := &screen{out: &bytes.Buffer{}, width: 40, height: 10, active: true}
+	s.reset()
+	defer s.terminal.Close()
+	for n := 0; n < 40; n++ {
+		fmt.Fprintf(s, "line %02d\n", n)
+	}
+	key := func(code rune, mod uv.KeyMod) { s.input(uv.KeyPressEvent{Code: code, Mod: mod}) }
+	s.top = 10
+	key('k', 0)
+	if s.top != 9 {
+		t.Fatal("k did not scroll up one line")
+	}
+	key('j', 0)
+	if s.top != 10 {
+		t.Fatal("j did not scroll down one line")
+	}
+	key('u', uv.ModCtrl)
+	if s.top != 6 {
+		t.Fatal("Ctrl-U did not scroll up half a page")
+	}
+	key('d', uv.ModCtrl)
+	if s.top != 10 {
+		t.Fatal("Ctrl-D did not scroll down half a page")
+	}
+	key('g', 0)
+	if s.top != 10 {
+		t.Fatal("single g scrolled")
+	}
+	key('g', 0)
+	if s.top != 0 {
+		t.Fatal("gg did not go to the top")
+	}
+	key('G', 0)
+	if s.top != -1 {
+		t.Fatal("G did not follow the bottom")
+	}
+	key('g', 0)
+	key('k', 0)
+	before := s.top
+	key('g', 0)
+	if s.top != before {
+		t.Fatal("unrelated key did not cancel pending g")
+	}
+	s.begin()
+	key('g', 0)
+	if s.top != -1 {
+		t.Fatal("rerun retained pending g")
+	}
+}

@@ -34,7 +34,8 @@ Options:
 
 Boolean flags can be grouped: runner -mn aoc ./solve.sh
 Without -m or -w, exactly one existing file in the command is watched.
-Scroll with the mouse wheel, Page Up/Down, arrows, Home, and End (follow).
+Scroll: j/k or arrows (lines), Ctrl-U/D (half-pages), Page Up/Down (pages).
+gg/Home: top. G/End: bottom and follow. Mouse wheel also scrolls.
 Each run clears its history; up to 10,000 rows are retained. Ctrl-C or q exits.
 
 Commands run directly. Use sh -c '...' or pwsh -Command '...' for shell syntax.

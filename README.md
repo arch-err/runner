@@ -24,8 +24,9 @@ Multiple files (for example a script plus an input file) require explicit `-w`
 or `-m`. Paths are resolved relative to `-C`; executable names are not searched
 on PATH and shell snippets are not parsed.
 
-In a terminal, use the mouse wheel, Page Up/Down, or arrow keys to scroll. Home
-goes to the oldest retained output; End follows the latest output again. While
+In a terminal, `j`/`k` or arrows scroll by line, Ctrl-U/D by half-page, and
+Page Up/Down by page. `gg`/Home goes to the oldest retained output; `G`/End
+follows the latest output again. The mouse wheel also scrolls. While
 scrolled, new output leaves the view in place. Each run resets the buffer, which
 retains up to 10,000 history rows. Ctrl-C or q exits. Hold Shift for terminal text
 selection if your terminal reserves the mouse while reporting wheel events.
