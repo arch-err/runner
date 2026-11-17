@@ -11,30 +11,42 @@ type process struct {
 	done    chan struct{}
 	group   processGroup
 	started time.Time
+	output  *outputCapture
 }
 
-func startProcess(args []string, directory string) (*process, error) {
+func startProcess(args []string, directory string, screens ...*screen) (*process, error) {
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Dir = directory
 	// This runner is for noninteractive commands; output retains the pane's TTY.
 	cmd.Stdin = nil
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	var output *outputCapture
+	if len(screens) > 0 && screens[0].active {
+		var err error
+		output, err = captureOutput(cmd, screens[0])
+		if err != nil {
+			return nil, err
+		}
+	}
 	group, err := prepareProcess(cmd)
 	if err != nil {
+		output.close()
 		return nil, err
 	}
 	started := time.Now()
 	if err := cmd.Start(); err != nil {
 		group.close()
+		output.close()
 		return nil, err
 	}
 	if err := group.attach(cmd); err != nil {
 		cmd.Process.Kill()
 		cmd.Wait()
 		group.close()
+		output.close()
 		return nil, err
 	}
-	p := &process{cmd: cmd, done: make(chan struct{}), group: group, started: started}
+	p := &process{cmd: cmd, done: make(chan struct{}), group: group, started: started, output: output}
 	go func() {
 		_ = cmd.Wait()
 		close(p.done)
@@ -42,7 +54,7 @@ func startProcess(args []string, directory string) (*process, error) {
 	return p, nil
 }
 
-func (p *process) close() { p.group.close() }
+func (p *process) close() { p.group.close(); p.output.close() }
 
 func (p *process) stop(timeout time.Duration) {
 	p.group.terminate()
@@ -52,4 +64,5 @@ func (p *process) stop(timeout time.Duration) {
 	}
 	p.group.close()
 	<-p.done
+	p.output.close()
 }

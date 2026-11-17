@@ -69,17 +69,17 @@ func TestTerminalLayoutAndRestoration(t *testing.T) {
 	if err := poke("tty"); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, "second run footer", func() bool { return strings.Count(output.String(), "exit 7") == 2 })
+	eventually(t, "second run footer", func() bool { return strings.Count(output.String(), "exit 7") >= 2 })
 	text := output.String()
-	if strings.Count(text, "\x1b[?1049h") != 1 || strings.Count(text, "command failed") != 2 || strings.Count(text, "\x1b[2J") != 3 {
+	if strings.Count(text, "\x1b[?1049h") != 1 || strings.Count(text, "command failed") < 2 || strings.Count(text, "\x1b[2J") != 3 {
 		t.Fatalf("runner did not reuse and clear its screen: %q", text)
 	}
-	if !strings.Contains(text, "\x1b[2;11r") || !strings.Contains(text, "\x1b[12;1H") {
+	if !strings.Contains(text, "\x1b[12;1H") {
 		t.Fatalf("missing fixed output region: %q", text)
 	}
 	resize(8, 40)
 	eventually(t, "layout follows terminal size", func() bool {
-		return strings.Contains(output.String(), "\x1b[2;7r") && strings.Contains(output.String(), "\x1b[8;1H")
+		return strings.Contains(output.String(), "\x1b[8;1H")
 	})
 	cmd.Process.Signal(syscall.SIGTERM)
 	select {
@@ -90,5 +90,8 @@ func TestTerminalLayoutAndRestoration(t *testing.T) {
 	if waitErr != nil {
 		t.Fatal(waitErr)
 	}
-	eventually(t, "terminal state restored", func() bool { return strings.Contains(output.String(), "\x1b[?6l\x1b[r\x1b[0m\x1b[?25h\x1b[?1049l") })
+	eventually(t, "terminal state restored", func() bool {
+		text := output.String()
+		return strings.Contains(text, "\x1b[?1000l") && strings.Contains(text, "\x1b[?1006l") && strings.Contains(text, "\x1b[?25h") && strings.Contains(text, "\x1b[?1049l")
+	})
 }

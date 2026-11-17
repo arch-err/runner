@@ -9,11 +9,13 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 )
 
 const help = `Run a command again when files change or you poke it.
 
+  runner ./solve.sh
   runner -w solve.py -- python solve.py --input sample.txt
   runner -m -n aoc -- python solve.py
   runner poke aoc
@@ -29,6 +31,11 @@ Options:
   -i, --ignore GLOB       Ignore a basename or relative path; repeat as needed
   -C, --directory PATH    Working directory for the command and watched paths
   -h, --help              Show this help
+
+Boolean flags can be grouped: runner -mn aoc ./solve.sh
+Without -m or -w, exactly one existing file in the command is watched.
+Scroll with the mouse wheel, Page Up/Down, arrows, Home, and End (follow).
+Each run clears its history; up to 10,000 rows are retained. Ctrl-C or q exits.
 
 Commands run directly. Use sh -c '...' or pwsh -Command '...' for shell syntax.
 SIGUSR1 triggers a run on Unix. Ctrl-C stops the command and exits.
@@ -70,14 +77,18 @@ func parse(args []string) (config, error) {
 	} {
 		f.Var(f.Lookup(long).Value, short, "")
 	}
-	if err := f.Parse(args); err != nil {
+	expanded, err := expandFlags(f, args)
+	if err != nil {
+		return c, err
+	}
+	if err := f.Parse(expanded); err != nil {
 		return c, err
 	}
 	c.command = f.Args()
 	if len(c.command) == 0 {
 		return c, errors.New("provide a command after -- (see runner --help)")
 	}
-	if c.manual == (len(c.watch) > 0) {
+	if c.manual && len(c.watch) > 0 {
 		return c, errors.New("choose either --manual or one or more --watch paths")
 	}
 	if c.manual && c.name == "" && len(pokeSignals()) == 0 {
@@ -94,7 +105,6 @@ func parse(args []string) (config, error) {
 			return c, fmt.Errorf("ignore pattern %q: %w", pattern, err)
 		}
 	}
-	var err error
 	c.directory, err = filepath.Abs(c.directory)
 	if err != nil {
 		return c, err
@@ -106,7 +116,87 @@ func parse(args []string) (config, error) {
 	if !info.IsDir() {
 		return c, errors.New("--directory must be a directory")
 	}
+	if !c.manual && len(c.watch) == 0 {
+		files := make(map[string]string)
+		for _, arg := range c.command {
+			if len(arg) == 0 || arg[0] == '-' {
+				continue
+			}
+			candidate := arg
+			if !filepath.IsAbs(candidate) {
+				candidate = filepath.Join(c.directory, candidate)
+			}
+			if info, err := os.Stat(candidate); err == nil && info.Mode().IsRegular() {
+				resolved, err := filepath.EvalSymlinks(candidate)
+				if err != nil {
+					return c, err
+				}
+				files[resolved] = arg
+			}
+		}
+		if len(files) != 1 {
+			return c, errors.New("cannot infer one file to watch; use --watch PATH or --manual")
+		}
+		for _, arg := range files {
+			c.watch = append(c.watch, arg)
+		}
+	}
 	return c, nil
+}
+
+// Expand runner flags only; the command and its arguments remain untouched.
+func expandFlags(f *flag.FlagSet, args []string) ([]string, error) {
+	var expanded []string
+	for index := 0; index < len(args); index++ {
+		arg := args[index]
+		if arg == "--" || len(arg) < 2 || arg[0] != '-' {
+			return append(expanded, args[index:]...), nil
+		}
+		name := arg[1:]
+		if name[0] == '-' {
+			name = name[1:]
+		}
+		if at := strings.IndexByte(name, '='); at >= 0 {
+			name = name[:at]
+		}
+		if option := f.Lookup(name); option != nil {
+			expanded = append(expanded, arg)
+			boolean, ok := option.Value.(interface{ IsBoolFlag() bool })
+			if !strings.Contains(arg, "=") && !(ok && boolean.IsBoolFlag()) && index+1 < len(args) {
+				index++
+				expanded = append(expanded, args[index])
+			}
+			continue
+		}
+		if strings.HasPrefix(arg, "--") || arg == "-h" {
+			expanded = append(expanded, arg)
+			continue
+		}
+		for at := 1; at < len(arg); at++ {
+			short := string(arg[at])
+			option := f.Lookup(short)
+			if short == "h" {
+				expanded = append(expanded, "-h")
+				continue
+			}
+			if option == nil {
+				return nil, fmt.Errorf("unknown short flag -%s", short)
+			}
+			expanded = append(expanded, "-"+short)
+			boolean, ok := option.Value.(interface{ IsBoolFlag() bool })
+			if ok && boolean.IsBoolFlag() {
+				continue
+			}
+			if at+1 < len(arg) {
+				expanded = append(expanded, strings.TrimPrefix(arg[at+1:], "="))
+			} else if index+1 < len(args) {
+				index++
+				expanded = append(expanded, args[index])
+			}
+			break
+		}
+	}
+	return expanded, nil
 }
 
 func Main(args []string) error {

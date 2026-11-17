@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"time"
 )
 
@@ -65,7 +66,10 @@ func run(c config) error {
 	}
 	screen := openScreen(fmt.Sprintf("%s · pid %d · %s", label, os.Getpid(), mode(c)))
 	defer screen.Close()
-	resize := time.NewTicker(200 * time.Millisecond)
+	inputCtx, stopInput := context.WithCancel(ctx)
+	defer stopInput()
+	input := screen.events(inputCtx)
+	resize := time.NewTicker(33 * time.Millisecond)
 	defer resize.Stop()
 	var child *process
 	var done <-chan struct{}
@@ -77,9 +81,13 @@ func run(c config) error {
 	start := func() {
 		screen.resize()
 		screen.begin()
-		p, err := startProcess(c.command, c.directory)
+		p, err := startProcess(c.command, c.directory, screen)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s · start failed: %v · waiting\n", label, err)
+			if screen.active {
+				fmt.Fprintf(screen, "%s · start failed: %v\n", label, err)
+			} else {
+				fmt.Fprintf(os.Stderr, "%s · start failed: %v · waiting\n", label, err)
+			}
 			screen.failed()
 			return
 		}
@@ -94,6 +102,10 @@ func run(c config) error {
 			return nil
 		case err := <-watchErrors:
 			return fmt.Errorf("watch: %w", err)
+		case event := <-input:
+			if screen.input(event) {
+				return nil
+			}
 		case <-resize.C:
 			screen.resize()
 		case <-triggers:
@@ -122,5 +134,14 @@ func mode(c config) string {
 	if c.manual {
 		return "manual"
 	}
-	return "watching"
+	if len(c.watch) == 1 {
+		candidate := c.watch[0]
+		if !filepath.IsAbs(candidate) {
+			candidate = filepath.Join(c.directory, candidate)
+		}
+		if info, err := os.Stat(candidate); err == nil && info.Mode().IsRegular() {
+			return "watching file: " + c.watch[0]
+		}
+	}
+	return fmt.Sprintf("watching %d paths", len(c.watch))
 }

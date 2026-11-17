@@ -14,12 +14,29 @@ Short flags: `-w` watch, `-m` manual, `-n` name, `-p` postpone, `-d` debounce,
 `-t` stop timeout, `-i` ignore, `-C` directory, `-c` clear, and `-h` help.
 Long and short flags can be mixed; repeat `-w` or `-i` for multiple values.
 
+Boolean flags can be combined: `runner -mn aoc ./solve.sh`. A value-taking flag
+consumes the rest of its group or the next argument (`-nNAME` or `-n NAME`).
+Runner stops parsing options at the command or `--`.
+
+With no mode flags, exactly one distinct existing regular file in the command is
+watched automatically: `runner ./solve.sh` or `runner python solve.py`.
+Multiple files (for example a script plus an input file) require explicit `-w`
+or `-m`. Paths are resolved relative to `-C`; executable names are not searched
+on PATH and shell snippets are not parsed.
+
+In a terminal, use the mouse wheel, Page Up/Down, or arrow keys to scroll. Home
+goes to the oldest retained output; End follows the latest output again. While
+scrolled, new output leaves the view in place. Each run resets the buffer, which
+retains up to 10,000 history rows. Ctrl-C or q exits. Hold Shift for terminal text
+selection if your terminal reserves the mouse while reporting wheel events.
+
 Runs immediately unless `--postpone` is set. File changes are debounced; a trigger
 stops the previous process tree before starting again. In a terminal, the header
 and status footer stay at the top and bottom of the pane. Each run clears the
 output area and starts from the top; the footer shows exit status and elapsed
 time. Ctrl-C restores your terminal and exits. Redirected output stays plain.
-Commands receive no stdin.
+Commands receive no stdin. Unix commands retain a TTY for output; Windows
+output is captured through pipes.
 
 Use `--directory PATH` to set the working
 directory, and repeat `--ignore GLOB` to exclude basenames or relative paths.
@@ -38,7 +55,7 @@ With Nix, `nix build` builds the package, `nix run . -- --help` runs it, and
 `nix develop` provides Go, a C compiler, Just, and nixfmt. `nix flake check`
 builds the package and runs its integration tests.
 
-Requires Go 1.24 or newer. No C compiler is needed for the binaries.
+Requires Go 1.24.2 or newer. No C compiler is needed for the binaries.
 
 ```sh
 go build -o runner ./cmd/runner
