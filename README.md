@@ -50,6 +50,15 @@ Commands and arguments pass through unchanged. For pipes or redirection, launch
 `sh -c '...'` or `pwsh -Command '...'` explicitly. See `runner --help` for options
 and [Neovim integration](docs/neovim.md) for autosave with on-demand execution.
 
+## Download
+
+Get a binary from [Releases](https://git.3rr.dev/arch-err/runner/releases).
+On Windows, run it from Git Bash with Bash explicitly:
+
+```sh
+./runner-windows-amd64.exe -w script.sh -- bash ./script.sh
+```
+
 ## Build
 
 With Nix, `nix build` builds the package, `nix run . -- --help` runs it, and
@@ -77,3 +86,8 @@ the OS cache directory. Names are case-insensitive and unique per user. Override
 the state location with `RUNNER_RUNTIME_DIR` in both terminals if needed. Restarting
 an instance recovers stale state after a crash. Windows binaries are cross-built;
 native Windows runtime verification is still needed.
+
+CI checks formatting, runs vet and race-enabled tests, and cross-builds Linux,
+macOS and Windows binaries for amd64 and arm64. Push a version tag (for example
+`git tag v0.1.0 && git push origin v0.1.0`) to publish those binaries and
+`SHA256SUMS` as a Forgejo release. `just release` builds the same assets locally.

@@ -18,3 +18,6 @@ windows:
 
 install:
     go install ./cmd/runner
+
+release:
+    bash scripts/release.sh
