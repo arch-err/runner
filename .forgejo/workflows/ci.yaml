@@ -8,21 +8,32 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: k8s
+    container:
+      image: docker.io/library/node:24.22.3-bookworm@sha256:9d266751ca3d7fdbe651c878ffd5ad0a42fed49a18c283509267c97f025b7496
     steps:
-      - uses: https://github.com/actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: https://github.com/actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      - uses: https://data.forgejo.org/actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: https://data.forgejo.org/actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
           cache: false
+      - name: Install release tools
+        run: apt-get update && apt-get install -y --no-install-recommends jq
       - name: Check formatting and vet
         run: |
+          cd "$GITHUB_WORKSPACE"
           test -z "$(gofmt -l cmd internal)"
           go vet ./...
       - name: Test
-        run: go test -race -timeout 120s ./...
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          go test -race -timeout 120s ./...
       - name: Build release binaries
-        run: bash scripts/release.sh
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          bash scripts/release.sh
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
         uses: https://code.forgejo.org/actions/forgejo-release@98265452477dafb3f0f27ba9c462c90b18cb44fd # v2.13.4
@@ -32,5 +43,5 @@ jobs:
           repo: ${{ github.repository }}
           tag: ${{ github.ref_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          release-dir: dist/release
+          release-dir: ${{ github.workspace }}/dist/release
           release-notes: 'Standalone binaries for Linux, macOS and Windows. SHA256SUMS contains checksums. Windows binaries are cross-built; native Windows runtime verification is still needed.'
