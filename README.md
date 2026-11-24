@@ -52,7 +52,8 @@ and [Neovim integration](docs/neovim.md) for autosave with on-demand execution.
 
 ## Download
 
-Get a binary from [Releases](https://git.3rr.dev/arch-err/runner/releases).
+Get a binary from [Forgejo](https://git.3rr.dev/arch-err/runner/releases) or
+[GitHub](https://github.com/arch-err/runner/releases).
 On Windows, run it from Git Bash with Bash explicitly:
 
 ```sh
@@ -96,3 +97,5 @@ CI uses the restricted `k8s` runner without external dependency downloads.
 After changing dependencies, run `just ci-deps`, upload the generated archive
 with an authenticated PUT to the printed Forgejo package URL, and commit
 `.forgejo/vendor.sha256` with the dependency changes.
+
+Forgejo is authoritative; GitHub mirrors Git refs and published release assets.
