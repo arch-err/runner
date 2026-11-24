@@ -98,6 +98,6 @@ After changing dependencies, run `just ci-deps`, upload the generated archive
 with an authenticated PUT to the printed Forgejo package URL, and commit
 `.forgejo/vendor.sha256` with the dependency changes.
 
-Forgejo is authoritative; GitHub mirrors Git refs and published release assets.
+Forgejo is authoritative; GitHub mirrors Git refs and builds releases from the same tags and build script.
 GitHub workflow changes require an SSH sync unless the shared mirror token has
 workflow permission; ordinary commits and tags use the automatic push mirror.

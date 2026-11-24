@@ -1,11 +1,11 @@
-name: Mirror releases
+name: Publish releases
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: Forgejo release tag
+        description: Release tag
         required: true
         default: v0.1.0
 
@@ -24,54 +24,35 @@ jobs:
       TAG: ${{ inputs.tag || github.ref_name }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Download published Forgejo release
-        shell: python
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          # Match the pinned Go image used by Forgejo CI.
+          go-version: '1.26.4'
+          cache: false
+      - name: Test and build
+        shell: bash
         run: |
-          import hashlib, json, os, pathlib, time, urllib.error, urllib.parse, urllib.request
-
-          tag = os.environ['TAG']
-          if not tag.startswith('v'):
-              raise SystemExit('Expected a version tag starting with v')
-          base = 'https://git.3rr.dev/arch-err/runner/releases/download/' + urllib.parse.quote(tag, safe='') + '/'
-          api = 'https://git.3rr.dev/api/v1/repos/arch-err/runner/releases/tags/' + urllib.parse.quote(tag, safe='')
-          # Git tags reach GitHub before the Forgejo build finishes publishing.
-          for attempt in range(120):
-              try:
-                  with urllib.request.urlopen(api, timeout=30) as response:
-                      release = json.load(response)
-                  if not release['draft']:
-                      break
-              except urllib.error.HTTPError as error:
-                  if error.code not in (404, 502, 503, 504):
-                      raise
-              if attempt == 119:
-                  raise SystemExit('Forgejo release was not published within 20 minutes')
-              time.sleep(10)
-          pathlib.Path('release-notes.md').write_text(release['body'] + '\n\nSource: ' + release['html_url'] + '\n')
-          pathlib.Path('prerelease.txt').write_text(str(release['prerelease']).lower())
-          output = pathlib.Path('dist')
-          output.mkdir()
-          sums = urllib.request.urlopen(base + 'SHA256SUMS', timeout=60).read()
-          (output / 'SHA256SUMS').write_bytes(sums)
-          expected = {'runner-' + system + '-' + arch + ('.exe' if system == 'windows' else '')
-                      for system in ('linux', 'darwin', 'windows') for arch in ('amd64', 'arm64')}
-          entries = [line.split() for line in sums.decode().splitlines()]
-          if len(entries) != 6 or {entry[1] for entry in entries} != expected:
-              raise SystemExit('Unexpected release checksum manifest')
-          for checksum, name in entries:
-              data = urllib.request.urlopen(base + name, timeout=120).read()
-              if hashlib.sha256(data).hexdigest() != checksum:
-                  raise SystemExit('Checksum mismatch: ' + name)
-              (output / name).write_bytes(data)
+          set -euo pipefail
+          [[ "$TAG" == v* ]]
+          go test -race -timeout 120s ./...
+          bash scripts/release.sh
+          (cd dist/release && sha256sum --check SHA256SUMS)
       - name: Publish GitHub release
         shell: bash
         run: |
           set -euo pipefail
+          printf 'Standalone binaries for Linux, macOS and Windows. SHA256SUMS contains checksums.\n\nSource: https://git.3rr.dev/arch-err/runner/releases/tag/%s\n\nWindows binaries are cross-built; native Windows runtime verification is still needed.\n' "$TAG" > release-notes.md
+          prerelease=false
+          [[ "$TAG" != *-* ]] || prerelease=true
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
               --title "$TAG" --notes-file release-notes.md --draft \
-              --prerelease="$(cat prerelease.txt)"
+              --prerelease="$prerelease"
           fi
-          gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$TAG" dist/release/* --repo "$GITHUB_REPOSITORY" --clobber
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false \
-            --prerelease="$(cat prerelease.txt)" --notes-file release-notes.md
+            --prerelease="$prerelease" --notes-file release-notes.md
