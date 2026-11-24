@@ -91,3 +91,8 @@ CI checks formatting, runs vet and race-enabled tests, and cross-builds Linux,
 macOS and Windows binaries for amd64 and arm64. Push a version tag (for example
 `git tag v0.1.0 && git push origin v0.1.0`) to publish those binaries and
 `SHA256SUMS` as a Forgejo release. `just release` builds the same assets locally.
+
+CI uses the restricted `k8s` runner without external dependency downloads.
+After changing dependencies, run `just ci-deps`, upload the generated archive
+with an authenticated PUT to the printed Forgejo package URL, and commit
+`.forgejo/vendor.sha256` with the dependency changes.

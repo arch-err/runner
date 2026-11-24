@@ -21,3 +21,6 @@ install:
 
 release:
     bash scripts/release.sh
+
+ci-deps:
+    bash scripts/ci-deps.sh

@@ -10,21 +10,35 @@ jobs:
   build:
     runs-on: k8s
     container:
-      image: docker.io/library/node:24.22.3-bookworm@sha256:9d266751ca3d7fdbe651c878ffd5ad0a42fed49a18c283509267c97f025b7496
+      image: docker.io/library/golang:1.26.4-bookworm@sha256:b305420a68d0f229d91eb3b3ed9e519fcf2cf5461da4bef997bf927e8c0bfd2b
+    env:
+      GOCACHE: /tmp/go-cache
+      GOPATH: /tmp/go
+      GOTOOLCHAIN: local
+      GOPROXY: 'off'
+      GOFLAGS: -mod=vendor
     steps:
-      - uses: https://data.forgejo.org/actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-      - uses: https://data.forgejo.org/actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
-        with:
-          go-version-file: go.mod
-          cache: false
-      - name: Install release tools
-        run: apt-get update && apt-get install -y --no-install-recommends jq
+      - name: Checkout
+        run: |
+          set -eu
+          cd "$GITHUB_WORKSPACE"
+          git init
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git fetch --depth=1 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+      - name: Fetch offline dependencies
+        run: |
+          set -eu
+          cd "$GITHUB_WORKSPACE"
+          version=$(sha256sum go.sum | cut -d ' ' -f1)
+          curl --fail --silent --show-error --location "$GITHUB_SERVER_URL/api/packages/arch-err/generic/runner-deps/$version/vendor.tar.gz" -o /tmp/vendor.tar.gz
+          echo "$(cat .forgejo/vendor.sha256)  /tmp/vendor.tar.gz" | sha256sum --check
+          tar -xzf /tmp/vendor.tar.gz
       - name: Check formatting and vet
         run: |
+          set -eu
           cd "$GITHUB_WORKSPACE"
-          test -z "$(gofmt -l cmd internal)"
+          test -z "$(gofmt -l cmd internal scripts/publish.go)"
           go vet ./...
       - name: Test
         run: |
@@ -36,12 +50,8 @@ jobs:
           bash scripts/release.sh
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
-        uses: https://code.forgejo.org/actions/forgejo-release@98265452477dafb3f0f27ba9c462c90b18cb44fd # v2.13.4
-        with:
-          direction: upload
-          url: ${{ github.server_url }}
-          repo: ${{ github.repository }}
-          tag: ${{ github.ref_name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          release-dir: ${{ github.workspace }}/dist/release
-          release-notes: 'Standalone binaries for Linux, macOS and Windows. SHA256SUMS contains checksums. Windows binaries are cross-built; native Windows runtime verification is still needed.'
+        env:
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          go run scripts/publish.go
