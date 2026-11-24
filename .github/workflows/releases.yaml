@@ -38,6 +38,8 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$TAG" == v* ]]
+          go mod vendor
+          export GOFLAGS=-mod=vendor
           go test -race -timeout 120s ./...
           bash scripts/release.sh
           (cd dist/release && sha256sum --check SHA256SUMS)
